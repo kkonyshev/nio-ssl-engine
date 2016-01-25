@@ -1,22 +1,15 @@
 package server.impl;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.*;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.serialization.ClassResolvers;
-import io.netty.handler.codec.serialization.ObjectDecoder;
-import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.netty.handler.ssl.SslHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import server.RequestHandler;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
 
 public class SSLServer<RequestDto, ResponseDto> {
 
@@ -27,14 +20,10 @@ public class SSLServer<RequestDto, ResponseDto> {
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
-    private SSLContext serverSSLContext;
-    private RequestHandler<RequestDto, ResponseDto> handler;
 
-    public SSLServer start(SSLContext sslContext, int port, RequestHandler<RequestDto, ResponseDto> serverHandler, boolean isSync) {
+    public SSLServer start(ServerObjectChannelInitializer<RequestDto, ResponseDto> serverObjectChannelInitializer, int port, boolean isSync) {
         LOG.info("Starting server...");
 
-        this.serverSSLContext = sslContext;
-        this.handler = serverHandler;
         this.bossGroup   = new NioEventLoopGroup(1);
         this.workerGroup = new NioEventLoopGroup(4);
 
@@ -44,22 +33,7 @@ public class SSLServer<RequestDto, ResponseDto> {
                     .channel(NioServerSocketChannel.class)
                     .option(ChannelOption.SO_BACKLOG, 100)
                     .handler(new LoggingHandler(LogLevel.INFO))
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        public void initChannel(SocketChannel ch) throws Exception {
-                            ChannelPipeline p = ch.pipeline();
-
-                            SSLEngine engine = serverSSLContext.createSSLEngine();
-                            engine.setUseClientMode(false);
-                            engine.setNeedClientAuth(true);
-
-                            p.addLast("ssl", new SslHandler(engine));
-                            p.addLast(new ObjectEncoder());
-                            p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-
-                            p.addLast(new ClientRequestAdapter(handler));
-                        }
-                    });
+                    .childHandler(serverObjectChannelInitializer);
 
             // Start the server.
             ChannelFuture f = b.bind(port).sync();

@@ -1,10 +1,12 @@
 import client.ResponseHandler;
+import client.impl.ClientObjectChannelInitializer;
 import client.impl.SSLClient;
 import dto.RequestObject;
 import dto.ResponseObject;
 import org.junit.Test;
 import server.RequestHandler;
 import server.impl.SSLServer;
+import server.impl.ServerObjectChannelInitializer;
 import utils.SSLEngineFactory;
 
 import javax.net.ssl.SSLContext;
@@ -25,40 +27,38 @@ public class TestPojoTransfering {
 
         try {
             SSLContext serverContext = SSLEngineFactory.getServerContext();
+
+            ServerObjectChannelInitializer<RequestObject, ResponseObject> serverObjectChannelInitializer =
+                    new ServerObjectChannelInitializer<RequestObject, ResponseObject>(
+                            serverContext,
+                            new RequestHandler<RequestObject, ResponseObject>() {
+                                public ResponseObject handle(RequestObject request) {
+                                    return new ResponseObject(request);
+                                }
+                            }
+                    );
+
             objectProcessingSSLServer.start(
-                    serverContext,
+                    serverObjectChannelInitializer,
                     SSLServer.PORT,
-                    new RequestHandler<RequestObject, ResponseObject>() {
-                        public ResponseObject handle(RequestObject request) {
-                            return new ResponseObject(request);
-                        }
-                    },
                     false
             );
 
+
             SSLContext clientContext = SSLEngineFactory.getClientContext();
-            sslClient.init(clientContext,
+            ClientObjectChannelInitializer<ResponseObject> clientObjectChannelInitializer = new ClientObjectChannelInitializer<ResponseObject>(clientContext,
                     new ResponseHandler<ResponseObject>() {
                         public void handle(ResponseObject o) {
                             int localSum = o.request.d1 + o.request.d2;
                             assert localSum == o.sum;
                             CRC32 crc = new CRC32();
                             crc.update(o.request.data);
-                            assert crc.getValue()==o.checksum;
+                            assert crc.getValue() == o.checksum;
                         }
                     });
 
-            SSLContext clientContext2 = SSLEngineFactory.getClientContext();
-            sslClient2.init(clientContext2,
-                    new ResponseHandler<ResponseObject>() {
-                        public void handle(ResponseObject o) {
-                            int localSum = o.request.d1 + o.request.d2;
-                            assert localSum == o.sum;
-                            CRC32 crc = new CRC32();
-                            crc.update(o.request.data);
-                            assert crc.getValue()==o.checksum;
-                        }
-                    });
+            sslClient.init(clientObjectChannelInitializer);
+            sslClient2.init(clientObjectChannelInitializer);
 
             Executor e = Executors.newFixedThreadPool(5);
             for (int i=0; i<10; i++){

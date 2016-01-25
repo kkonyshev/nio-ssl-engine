@@ -1,7 +1,5 @@
 package server.impl;
 
-import client.ResponseHandler;
-import client.impl.ServerResponseAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
@@ -9,18 +7,19 @@ import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.ssl.SslHandler;
+import server.RequestHandler;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
-public class ServerObjectChannelInitializer<ResponseDto> extends ChannelInitializer<SocketChannel> {
+public class ServerObjectChannelInitializer<RequestDto, ResponseDto> extends ChannelInitializer<SocketChannel> {
 
     private SSLContext sslContext;
-    private ResponseHandler<ResponseDto> responseHandler;
+    private RequestHandler<RequestDto, ResponseDto> requestHandler;
 
-    public ServerObjectChannelInitializer(SSLContext sslContext, ResponseHandler<ResponseDto> responseHandler) {
+    public ServerObjectChannelInitializer(SSLContext sslContext, RequestHandler<RequestDto, ResponseDto> requestHandler) {
         this.sslContext = sslContext;
-        this.responseHandler = responseHandler;
+        this.requestHandler = requestHandler;
     }
 
     @Override
@@ -28,12 +27,13 @@ public class ServerObjectChannelInitializer<ResponseDto> extends ChannelInitiali
         ChannelPipeline p = ch.pipeline();
 
         SSLEngine engine = sslContext.createSSLEngine();
-        engine.setUseClientMode(true);
+        engine.setUseClientMode(false);
         engine.setNeedClientAuth(true);
 
         p.addLast("ssl", new SslHandler(engine));
         p.addLast(new ObjectEncoder());
         p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-        p.addLast(new ServerResponseAdapter(responseHandler));
+
+        p.addLast(new ClientRequestAdapter(requestHandler));
     }
 }
