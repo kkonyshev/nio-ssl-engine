@@ -61,12 +61,12 @@ public class TestPojoTransfering {
             sslClient2.init(clientObjectChannelInitializer);
 
             Executor e = Executors.newFixedThreadPool(5);
-            for (int i=0; i<10; i++){
+            for (int i=0; i<1; i++){
                 e.execute(new Runnable() {
                     public void run() {
                         byte[] data = UUID.randomUUID().toString().getBytes();
                         Random rnd = new Random();
-                        for (int i=0; i<20; i++ ) {
+                        for (int i=0; i<1; i++ ) {
                             RequestObject msg = new RequestObject(rnd.nextInt(), rnd.nextInt(), data);
                             sslClient.call(msg);
                             sslClient2.call(msg);
