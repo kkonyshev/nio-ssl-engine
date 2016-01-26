@@ -7,19 +7,16 @@ import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.ssl.SslHandler;
-import server.RequestHandler;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
-public class ServerObjectChannelInitializer<RequestDto, ResponseDto> extends ChannelInitializer<SocketChannel> {
+public class ServerObjectChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private SSLContext sslContext;
-    private RequestHandler<RequestDto, ResponseDto> requestHandler;
 
-    public ServerObjectChannelInitializer(SSLContext sslContext, RequestHandler<RequestDto, ResponseDto> requestHandler) {
+    public ServerObjectChannelInitializer(SSLContext sslContext) {
         this.sslContext = sslContext;
-        this.requestHandler = requestHandler;
     }
 
     @Override
@@ -34,6 +31,6 @@ public class ServerObjectChannelInitializer<RequestDto, ResponseDto> extends Cha
         p.addLast(new ObjectEncoder());
         p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
 
-        p.addLast(new ClientRequestAdapter(requestHandler));
+        p.addLast(new SimpleClientRequestAdapter());
     }
 }

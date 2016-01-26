@@ -12,9 +12,9 @@ import io.netty.handler.logging.LoggingHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class SSLClient<RequestDto, ResponseDto> {
+public class SimpleSSLClient<RequestDto, ResponseDto> {
 
-    private Logger LOG = LogManager.getLogger();
+    protected Logger LOG = LogManager.getLogger();
 
     private EventLoopGroup group;
     private Bootstrap b;
@@ -26,12 +26,12 @@ public class SSLClient<RequestDto, ResponseDto> {
         //System.setProperty("javax.net.debug","all");
     }
 
-    public SSLClient(String host, int port) {
+    public SimpleSSLClient(String host, int port) {
         this.host = host;
         this.port = port;
     }
 
-    public SSLClient<RequestDto, ResponseDto> init(ClientObjectChannelInitializer<ResponseDto> channelInitializer) {
+    public SimpleSSLClient<RequestDto, ResponseDto> init(ClientObjectChannelInitializer<ResponseDto> channelInitializer) {
         group = new NioEventLoopGroup();
         try {
             b = new Bootstrap();
@@ -55,7 +55,9 @@ public class SSLClient<RequestDto, ResponseDto> {
         try {
             ChannelFuture f = b.connect(this.host, this.port).sync();
             Channel channel = f.channel();
-            channel.write(requestDto);
+
+            processCall(requestDto, channel);
+
             // Wait until the connection is closed.
             ChannelFuture channelFuture = channel.closeFuture();
             if (sync) {
@@ -65,6 +67,10 @@ public class SSLClient<RequestDto, ResponseDto> {
         } catch (InterruptedException e) {
             LOG.warn("Interrupted!", e);
         }
+    }
+
+    protected void processCall(RequestDto requestDto, Channel channel) {
+        channel.write(requestDto);
     }
 
 

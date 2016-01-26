@@ -1,10 +1,10 @@
 import client.ResponseHandler;
 import client.impl.ClientObjectChannelInitializer;
-import client.impl.SSLClient;
+import client.impl.SimpleSSLClient;
 import dto.RequestObject;
 import dto.ResponseObject;
+import org.junit.Assert;
 import org.junit.Test;
-import server.RequestHandler;
 import server.impl.SSLServer;
 import server.impl.ServerObjectChannelInitializer;
 import utils.SSLEngineFactory;
@@ -14,29 +14,25 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.CRC32;
 
-public class TestPojoTransfering {
+public class TestPojoTransfer {
 
     @Test
     public void testPojo1() {
-        final SSLServer objectProcessingSSLServer = new SSLServer<RequestObject, ResponseObject>();
-        final SSLClient sslClient = new SSLClient(SSLServer.HOST, SSLServer.PORT);
-        final SSLClient sslClient2 = new SSLClient(SSLServer.HOST, SSLServer.PORT);
+        AtomicInteger reqCount = new AtomicInteger();
+
+        final SSLServer objectProcessingSSLServer = new SSLServer();
+        final SimpleSSLClient simpleSslClient = new SimpleSSLClient(SSLServer.HOST, SSLServer.PORT);
+        final SimpleSSLClient simpleSslClient2 = new SimpleSSLClient(SSLServer.HOST, SSLServer.PORT);
 
 
         try {
             SSLContext serverContext = SSLEngineFactory.getServerContext();
 
-            ServerObjectChannelInitializer<RequestObject, ResponseObject> serverObjectChannelInitializer =
-                    new ServerObjectChannelInitializer<RequestObject, ResponseObject>(
-                            serverContext,
-                            new RequestHandler<RequestObject, ResponseObject>() {
-                                public ResponseObject handle(RequestObject request) {
-                                    return new ResponseObject(request);
-                                }
-                            }
-                    );
+            ServerObjectChannelInitializer serverObjectChannelInitializer =
+                    new ServerObjectChannelInitializer(serverContext);
 
             objectProcessingSSLServer.start(
                     serverObjectChannelInitializer,
@@ -54,34 +50,38 @@ public class TestPojoTransfering {
                             CRC32 crc = new CRC32();
                             crc.update(o.request.data);
                             assert crc.getValue() == o.checksum;
+                            reqCount.decrementAndGet();
                         }
                     });
 
-            sslClient.init(clientObjectChannelInitializer);
-            sslClient2.init(clientObjectChannelInitializer);
+            simpleSslClient.init(clientObjectChannelInitializer);
+            simpleSslClient2.init(clientObjectChannelInitializer);
 
-            Executor e = Executors.newFixedThreadPool(5);
-            for (int i=0; i<1; i++){
+            Executor e = Executors.newFixedThreadPool(2);
+            for (int i=0; i<3; i++){
                 e.execute(new Runnable() {
                     public void run() {
                         byte[] data = UUID.randomUUID().toString().getBytes();
                         Random rnd = new Random();
-                        for (int i=0; i<1; i++ ) {
+                        for (int i=0; i<5; i++ ) {
                             RequestObject msg = new RequestObject(rnd.nextInt(), rnd.nextInt(), data);
-                            sslClient.call(msg);
-                            sslClient2.call(msg);
+                            simpleSslClient.call(msg);
+                            reqCount.incrementAndGet();
+                            simpleSslClient2.call(msg);
+                            reqCount.incrementAndGet();
                         }
                     }
                 });
             }
 
+            Assert.assertEquals(0, reqCount.get());
             Thread.sleep(10000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
             objectProcessingSSLServer.stop();
-            sslClient.shutdown();
-            sslClient2.shutdown();
+            simpleSslClient.shutdown();
+            simpleSslClient2.shutdown();
         }
     }
 }
