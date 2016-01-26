@@ -37,8 +37,6 @@ public class TestFile {
 
                 byte[] arr = new byte[buf.remaining()];
                 buf.get(arr);
-                System.out.println(new String(arr));
-
 
                 ByteBuffer writeBuff = ByteBuffer.wrap(arr);
                 outChannel.write(writeBuff);

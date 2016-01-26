@@ -3,6 +3,7 @@ import client.impl.ClientObjectChannelInitializer;
 import client.impl.FileSSLClient;
 import dto.FileTransferReq;
 import dto.FileTransferReqStatus;
+import org.junit.Assert;
 import org.junit.Test;
 import server.impl.SSLFileServer;
 import server.impl.SSLServer;
@@ -20,11 +21,13 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class TestPojo2StringTransfering {
+public class TestFileTransfer {
 
     @Test
     public void testPojo1() throws IOException {
+        AtomicInteger reqCount = new AtomicInteger();
 
         SSLFileServer fileServer = new SSLFileServer();
         final FileSSLClient fileClient = new FileSSLClient(SSLFileServer.HOST, SSLFileServer.PORT);
@@ -49,6 +52,7 @@ public class TestPojo2StringTransfering {
                     new ResponseHandler<FileTransferReq>() {
                         public void handle(FileTransferReq o) {
                             assert o.lCRC.equals(o.rCRC);
+                            reqCount.decrementAndGet();
                         }
                     });
 
@@ -57,6 +61,10 @@ public class TestPojo2StringTransfering {
 
 
             final Path filePath = Paths.get("target/file/");
+
+            if (!filePath.toFile().exists()) {
+                Files.createDirectory(filePath);
+            }
 
             Arrays.asList(filePath.toFile().listFiles()).stream().forEach(f->f.delete());
 
@@ -83,6 +91,7 @@ public class TestPojo2StringTransfering {
                                                 null
                                         )
                                 );
+                                reqCount.incrementAndGet();
                             } catch (IOException e1) {
                                 e1.printStackTrace();
                             }
@@ -101,6 +110,7 @@ public class TestPojo2StringTransfering {
                                                 null
                                         )
                                 );
+                                reqCount.incrementAndGet();
                             } catch (IOException e1) {
                                 e1.printStackTrace();
                             }
@@ -108,6 +118,8 @@ public class TestPojo2StringTransfering {
                     }
                 });
             }
+
+            Assert.assertEquals(0, reqCount.get());
 
             Thread.sleep(10000);
         } catch (InterruptedException e) {

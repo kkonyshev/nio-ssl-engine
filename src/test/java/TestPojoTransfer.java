@@ -3,6 +3,7 @@ import client.impl.ClientObjectChannelInitializer;
 import client.impl.SimpleSSLClient;
 import dto.RequestObject;
 import dto.ResponseObject;
+import org.junit.Assert;
 import org.junit.Test;
 import server.impl.SSLServer;
 import server.impl.ServerObjectChannelInitializer;
@@ -13,12 +14,15 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.CRC32;
 
-public class TestPojoTransfering {
+public class TestPojoTransfer {
 
     @Test
     public void testPojo1() {
+        AtomicInteger reqCount = new AtomicInteger();
+
         final SSLServer objectProcessingSSLServer = new SSLServer();
         final SimpleSSLClient simpleSslClient = new SimpleSSLClient(SSLServer.HOST, SSLServer.PORT);
         final SimpleSSLClient simpleSslClient2 = new SimpleSSLClient(SSLServer.HOST, SSLServer.PORT);
@@ -46,6 +50,7 @@ public class TestPojoTransfering {
                             CRC32 crc = new CRC32();
                             crc.update(o.request.data);
                             assert crc.getValue() == o.checksum;
+                            reqCount.decrementAndGet();
                         }
                     });
 
@@ -61,12 +66,15 @@ public class TestPojoTransfering {
                         for (int i=0; i<5; i++ ) {
                             RequestObject msg = new RequestObject(rnd.nextInt(), rnd.nextInt(), data);
                             simpleSslClient.call(msg);
+                            reqCount.incrementAndGet();
                             simpleSslClient2.call(msg);
+                            reqCount.incrementAndGet();
                         }
                     }
                 });
             }
 
+            Assert.assertEquals(0, reqCount.get());
             Thread.sleep(10000);
         } catch (InterruptedException e) {
             e.printStackTrace();
