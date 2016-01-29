@@ -1,4 +1,4 @@
-package server.impl;
+package server.map;
 
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -11,11 +11,11 @@ import io.netty.handler.ssl.SslHandler;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
-public class ServerObjectChannelInitializer extends ChannelInitializer<SocketChannel> {
+public class ServerMtMapChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private SSLContext sslContext;
 
-    public ServerObjectChannelInitializer(SSLContext sslContext) {
+    public ServerMtMapChannelInitializer(SSLContext sslContext) {
         this.sslContext = sslContext;
     }
 
@@ -28,9 +28,10 @@ public class ServerObjectChannelInitializer extends ChannelInitializer<SocketCha
         engine.setNeedClientAuth(true);
 
         p.addLast("ssl", new SslHandler(engine));
+        //p.addLast(new LoggingHandler(LogLevel.INFO));
         p.addLast(new ObjectEncoder());
         p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
 
-        p.addLast(new SimpleClientRequestAdapter());
+        p.addLast(new ClientMtMapRequestAdapter());
     }
 }

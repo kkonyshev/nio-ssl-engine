@@ -1,4 +1,4 @@
-package server.impl;
+package server.file;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -12,7 +12,7 @@ import io.netty.handler.logging.LoggingHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class SSLServer {
+public class SSLFileServer {
 
     public static final int PORT = Integer.parseInt(System.getProperty("port", "8007"));
     public static final String HOST = System.getProperty("host", "127.0.0.1");
@@ -22,7 +22,7 @@ public class SSLServer {
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
 
-    public SSLServer start(ChannelInitializer serverObjectChannelInitializer, int port, boolean isSync) {
+    public SSLFileServer start(ChannelInitializer serverObjectChannelInitializer, int port, boolean isSync) {
         LOG.info("Starting server...");
 
         this.bossGroup   = new NioEventLoopGroup(1);

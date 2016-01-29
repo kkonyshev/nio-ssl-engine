@@ -1,5 +1,6 @@
-package client.impl;
+package client;
 
+import client.object.ClientObjectChannelInitializer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -12,7 +13,7 @@ import io.netty.handler.logging.LoggingHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class SimpleSSLClient<RequestDto, ResponseDto> {
+public class SSLClient<RequestDto, ResponseDto> {
 
     protected Logger LOG = LogManager.getLogger();
 
@@ -26,12 +27,12 @@ public class SimpleSSLClient<RequestDto, ResponseDto> {
         //System.setProperty("javax.net.debug","all");
     }
 
-    public SimpleSSLClient(String host, int port) {
+    public SSLClient(String host, int port) {
         this.host = host;
         this.port = port;
     }
 
-    public SimpleSSLClient<RequestDto, ResponseDto> init(ClientObjectChannelInitializer<ResponseDto> channelInitializer) {
+    public SSLClient<RequestDto, ResponseDto> init(ClientObjectChannelInitializer<ResponseDto> channelInitializer) {
         group = new NioEventLoopGroup();
         try {
             b = new Bootstrap();

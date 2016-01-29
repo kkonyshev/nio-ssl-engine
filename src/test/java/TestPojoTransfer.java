@@ -1,12 +1,12 @@
 import client.ResponseHandler;
-import client.impl.ClientObjectChannelInitializer;
-import client.impl.SimpleSSLClient;
-import dto.RequestObject;
-import dto.ResponseObject;
+import client.object.ClientObjectChannelInitializer;
+import client.SSLClient;
+import dto.object.RequestObject;
+import dto.object.ResponseObject;
 import org.junit.Assert;
 import org.junit.Test;
-import server.impl.SSLServer;
-import server.impl.ServerObjectChannelInitializer;
+import server.SSLServer;
+import server.object.ServerObjectChannelInitializer;
 import utils.SSLEngineFactory;
 
 import javax.net.ssl.SSLContext;
@@ -24,8 +24,8 @@ public class TestPojoTransfer {
         AtomicInteger reqCount = new AtomicInteger();
 
         final SSLServer objectProcessingSSLServer = new SSLServer();
-        final SimpleSSLClient simpleSslClient = new SimpleSSLClient(SSLServer.HOST, SSLServer.PORT);
-        final SimpleSSLClient simpleSslClient2 = new SimpleSSLClient(SSLServer.HOST, SSLServer.PORT);
+        final SSLClient sslClient = new SSLClient(SSLServer.HOST, SSLServer.PORT);
+        final SSLClient sslClient2 = new SSLClient(SSLServer.HOST, SSLServer.PORT);
 
 
         try {
@@ -54,8 +54,8 @@ public class TestPojoTransfer {
                         }
                     });
 
-            simpleSslClient.init(clientObjectChannelInitializer);
-            simpleSslClient2.init(clientObjectChannelInitializer);
+            sslClient.init(clientObjectChannelInitializer);
+            sslClient2.init(clientObjectChannelInitializer);
 
             Executor e = Executors.newFixedThreadPool(2);
             for (int i=0; i<3; i++){
@@ -65,9 +65,9 @@ public class TestPojoTransfer {
                         Random rnd = new Random();
                         for (int i=0; i<5; i++ ) {
                             RequestObject msg = new RequestObject(rnd.nextInt(), rnd.nextInt(), data);
-                            simpleSslClient.call(msg);
+                            sslClient.call(msg);
                             reqCount.incrementAndGet();
-                            simpleSslClient2.call(msg);
+                            sslClient2.call(msg);
                             reqCount.incrementAndGet();
                         }
                     }
@@ -80,8 +80,8 @@ public class TestPojoTransfer {
             e.printStackTrace();
         } finally {
             objectProcessingSSLServer.stop();
-            simpleSslClient.shutdown();
-            simpleSslClient2.shutdown();
+            sslClient.shutdown();
+            sslClient2.shutdown();
         }
     }
 }

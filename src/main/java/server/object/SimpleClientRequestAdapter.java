@@ -1,7 +1,7 @@
-package server.impl;
+package server.object;
 
-import dto.RequestObject;
-import dto.ResponseObject;
+import dto.object.RequestObject;
+import dto.object.ResponseObject;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;

@@ -1,4 +1,4 @@
-package dto;
+package dto.file;
 
 import java.net.SocketAddress;
 

@@ -1,7 +1,6 @@
-package dto;
+package dto.file;
 
 import java.io.Serializable;
-import java.util.zip.CRC32;
 
 public class FileTransferReq implements Serializable {
 

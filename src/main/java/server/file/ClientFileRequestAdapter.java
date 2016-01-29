@@ -1,7 +1,7 @@
-package server.impl;
+package server.file;
 
-import dto.FileTransferReq;
-import dto.FileTransferReqStatus;
+import dto.file.FileTransferReq;
+import dto.file.FileTransferReqStatus;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;

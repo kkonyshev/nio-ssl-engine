@@ -1,13 +1,13 @@
 import client.ResponseHandler;
-import client.impl.ClientObjectChannelInitializer;
-import client.impl.FileSSLClient;
-import dto.FileTransferReq;
-import dto.FileTransferReqStatus;
+import client.object.ClientObjectChannelInitializer;
+import client.file.FileSSLClient;
+import dto.file.FileTransferReq;
+import dto.file.FileTransferReqStatus;
 import org.junit.Assert;
 import org.junit.Test;
-import server.impl.SSLFileServer;
-import server.impl.SSLServer;
-import server.impl.ServerFileChannelInitializer;
+import server.file.SSLFileServer;
+import server.SSLServer;
+import server.file.ServerFileChannelInitializer;
 import utils.SSLEngineFactory;
 
 import javax.net.ssl.SSLContext;

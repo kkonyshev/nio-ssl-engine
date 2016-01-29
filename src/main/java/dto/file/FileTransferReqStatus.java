@@ -1,4 +1,4 @@
-package dto;
+package dto.file;
 
 public enum FileTransferReqStatus {
     INIT,

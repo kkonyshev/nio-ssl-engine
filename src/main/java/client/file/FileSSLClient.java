@@ -1,7 +1,8 @@
-package client.impl;
+package client.file;
 
-import dto.FileTransferReq;
-import dto.FileTransferReqStatus;
+import client.SSLClient;
+import dto.file.FileTransferReq;
+import dto.file.FileTransferReqStatus;
 import io.netty.channel.Channel;
 
 import java.io.RandomAccessFile;
@@ -9,7 +10,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.zip.CRC32;
 
-public class FileSSLClient extends SimpleSSLClient<FileTransferReq, FileTransferReq> {
+public class FileSSLClient extends SSLClient<FileTransferReq, FileTransferReq> {
 
     public FileSSLClient(String host, int port) {
         super(host, port);
