@@ -27,8 +27,6 @@ public class TestMtTransfer {
         AtomicInteger count = new AtomicInteger();
         final SSLServer objectProcessingSSLServer = new SSLServer();
         final MtMapClient sslClient = new MtMapClient(SSLServer.HOST, SSLServer.PORT);
-        final Object syncLock = new Object();
-
         try {
             SSLContext serverContext = SSLEngineFactory.getServerContext();
 
@@ -41,8 +39,9 @@ public class TestMtTransfer {
                     false
             );
 
-            final int maxSize = 50;
+            final int maxSize = 5000;
             SSLContext clientContext = SSLEngineFactory.getClientContext();
+
             ClientObjectContextChannelInitializer<MtTransferRes> clientObjectChannelInitializer =
                     new ClientObjectContextChannelInitializer<>(
                             clientContext,
@@ -52,16 +51,16 @@ public class TestMtTransfer {
                                     LOG.debug("server response: " + resDto.status + " count=" + i);
                                     if (i==0) {
                                         assert resDto.size==maxSize;
-                                        synchronized (monitor) {
-                                            monitor.notify();
-                                        }
+                                    }
+                                    synchronized (monitor) {
+                                        monitor.notify();
                                     }
                                 }
                             },
-                            syncLock
+                            new Object()
                     );
 
-            sslClient.init(clientObjectChannelInitializer);
+            sslClient.init(clientObjectChannelInitializer, 3);
 
 
             Map<Object, Object> sourceMap = new HashMap<>();
@@ -71,10 +70,8 @@ public class TestMtTransfer {
                 count.incrementAndGet();
             });
 
-            synchronized (syncLock) {
-                sslClient.start(sourceMap, 4);
-                syncLock.wait();
-            }
+            sslClient.start(sourceMap);
+
             Assert.assertTrue(count.get()==0);
 
         } catch (InterruptedException e) {
