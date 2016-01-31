@@ -1,7 +1,6 @@
 package client.map;
 
-import client.SSLClient;
-import client.object.ClientObjectChannelInitializer;
+import client.object.ClientObjectContextChannelInitializer;
 import dto.map.MtTransferReq;
 import dto.map.MtTransferRes;
 import dto.map.TransferEvent;
@@ -12,12 +11,12 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MtMapClient {
 
@@ -28,11 +27,10 @@ public class MtMapClient {
 
     private int port;
     private String host;
-    private ClientObjectChannelInitializer<MtTransferRes> channelInitializer;
-
-    public static void main(String[] args) {
-        //System.setProperty("javax.net.debug","all");
-    }
+    private ClientObjectContextChannelInitializer<MtTransferRes> channelInitializer;
+    private int maxConnections = 1;
+    private final Deque<Channel> queue = new LinkedList<>();
+    private int currentConnections = 0;
 
 
     public MtMapClient(String host, int port) {
@@ -40,7 +38,7 @@ public class MtMapClient {
         this.port = port;
     }
 
-    public MtMapClient init(ClientObjectChannelInitializer<MtTransferRes> channelInitializer) {
+    public MtMapClient init(ClientObjectContextChannelInitializer<MtTransferRes> channelInitializer) {
         this.channelInitializer = channelInitializer;
 
         group = new NioEventLoopGroup();
@@ -49,8 +47,9 @@ public class MtMapClient {
             b.group(group)
                     .channel(NioSocketChannel.class)
                     .option(ChannelOption.TCP_NODELAY, true)
-                    .handler(new LoggingHandler(LogLevel.INFO))
+                    //.handler(new LoggingHandler(LogLevel.INFO))
                     .handler(channelInitializer);
+
         } catch (Exception e){
             shutdown();
         }
@@ -58,21 +57,70 @@ public class MtMapClient {
         return this;
     }
 
-    public void call(MtTransferReq requestDto, boolean sync) {
-        try {
-            ChannelFuture f = b.connect(this.host, this.port).sync();
-            Channel channel = f.channel();
+    public void start(Map<Object, Object> sourceMap, int threadCount) throws InterruptedException {
+        final String processId = UUID.randomUUID().toString();
+        this.maxConnections = threadCount;
+        ExecutorService taskExecutor = Executors.newFixedThreadPool(threadCount);
 
-            channel.writeAndFlush(requestDto);
+        sourceMap.forEach((key,value)->{
+            taskExecutor.execute(()->{
+                Map<Object, Object> iMap = new HashMap<>();
+                iMap.put(key, value);
+                MtTransferReq dto = new MtTransferReq(processId, TransferEvent.PROCESS, iMap, sourceMap.size());
+                sendMessage(dto);
+           });
+        });
+    }
 
-            // Wait until the connection is closed.
-            ChannelFuture channelFuture = channel.closeFuture();
-            if (sync) {
-                LOG.info("in sync mode");
-                channelFuture.sync();
+    // wait for, or create a channel
+    private Channel acquireChan() throws InterruptedException {
+        synchronized(queue) {
+            do {
+                while (queue.isEmpty()) {
+                    if (currentConnections < maxConnections) {
+                        // no idle channels, and we have space for another
+                        // create a channel, and add it to the queue.
+                        // hopefully it will be there when we go around the loop.
+                        Channel newChan = b.connect(this.host, this.port).sync().channel();
+                        currentConnections++;
+                        queue.add(newChan);
+                    } else {
+                        // otherwise wait a second, and loop again.
+                        // if a channel is returned in the interim, we will be notified.
+                        queue.wait(1000);
+                    }
+                }
+                // OK, there's an available channel, make sure it is usable.
+                Channel toUse = queue.removeFirst();
+                if (toUse.isActive()) {
+                    // great, good to go, use it.
+                    return toUse;
+                }
+                // the toUse connection is dead, throw it away.
+                currentConnections--;
+            } while (true);
+        }
+    }
+
+    private void returnChan(Channel chan) {
+        if (chan!=null) {
+            synchronized (queue) {
+                queue.addLast(chan);
+                queue.notifyAll();
             }
-        } catch (InterruptedException e) {
-            LOG.warn("Interrupted!", e);
+        }
+    }
+
+    public void sendMessage(final MtTransferReq message)  {
+        Channel ch = null;
+        try {
+            ch = acquireChan();
+            LOG.debug("Sending to Server using Channel: " + ch.localAddress() + " data: " + message);
+            ChannelFuture future = ch.writeAndFlush(message);
+        } catch (Exception e) {
+            LOG.warn(e.getMessage(), e);
+        } finally {
+            returnChan(ch);
         }
     }
 
@@ -82,57 +130,13 @@ public class MtMapClient {
         if(group!=null) {
             group.shutdownGracefully();
         }
+        LOG.info("Shutting down client pool");
     }
 
-    public void finalize() {
+    public void finalize() throws Throwable {
+        super.finalize();
         shutdown();
     }
 
-    public void start(Map<Object,Object> sourceMap) throws InterruptedException {
-        final String processId = UUID.randomUUID().toString();
 
-        int threadCount = 3;
-        Map<Integer, List<Map<Object, Object>>> threadMap = prepareMapForTransfering(threadCount, sourceMap);
-
-        MtTransferReq initReq = new MtTransferReq(processId, TransferEvent.START, null);
-        call(initReq, false);
-
-        Thread.sleep(100);
-
-        for (Map.Entry e: sourceMap.entrySet()) {
-            Map<Object, Object> iMap = new HashMap<>();
-            iMap.put(e.getKey(), e.getValue());
-            MtTransferReq dto = new MtTransferReq(processId, TransferEvent.PROCESS, iMap);
-            call(dto, false);
-        }
-
-        MtTransferReq stopSig = new MtTransferReq(processId, TransferEvent.END, null);
-        call(stopSig, false);
-    }
-
-    private Map<Integer, List<Map<Object, Object>>> prepareMapForTransfering(int threadCount, Map<Object, Object> sourceMap) {
-        List<List<Map<Object, Object>>> listMap = new ArrayList<>();
-
-        int threshold = sourceMap.size()/threadCount + 1;
-        Iterator<Map.Entry<Object, Object>> mI = sourceMap.entrySet().iterator();
-        while (mI.hasNext()) {
-            List<Map<Object, Object>> innerMapList = new ArrayList<>();
-            for (int j=0; j<threshold && mI.hasNext(); j++) {
-                Map<Object, Object> map = new HashMap<>();
-                Map.Entry<Object, Object> entry = mI.next();
-                map.put(entry.getKey(), entry.getValue());
-                innerMapList.add(map);
-            }
-            if (!innerMapList.isEmpty()) {
-                listMap.add(innerMapList);
-            }
-        }
-
-        Map<Integer, List<Map<Object, Object>>> threadMap = new HashMap<>();
-
-        for (int i=0; i< listMap.size(); i++) {
-            threadMap.put(i, listMap.get(i));
-        }
-        return threadMap;
-    }
 }

@@ -1,5 +1,9 @@
-package server.impl;
+package client.object;
 
+import client.ResponseContextHandler;
+import client.ResponseHandler;
+import client.ServerResponseAdapter;
+import client.ServerResponseContextAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
@@ -11,12 +15,16 @@ import io.netty.handler.ssl.SslHandler;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
-public class ServerMtMapChannelInitializer extends ChannelInitializer<SocketChannel> {
+public class ClientObjectContextChannelInitializer<ResponseDto> extends ChannelInitializer<SocketChannel> {
 
     private SSLContext sslContext;
+    private ResponseContextHandler<ResponseDto> responseHandler;
+    private Object monitor;
 
-    public ServerMtMapChannelInitializer(SSLContext sslContext) {
+    public ClientObjectContextChannelInitializer(SSLContext sslContext, ResponseContextHandler<ResponseDto> responseHandler, Object monitor) {
         this.sslContext = sslContext;
+        this.responseHandler = responseHandler;
+        this.monitor = monitor;
     }
 
     @Override
@@ -24,7 +32,7 @@ public class ServerMtMapChannelInitializer extends ChannelInitializer<SocketChan
         ChannelPipeline p = ch.pipeline();
 
         SSLEngine engine = sslContext.createSSLEngine();
-        engine.setUseClientMode(false);
+        engine.setUseClientMode(true);
         engine.setNeedClientAuth(true);
 
         p.addLast("ssl", new SslHandler(engine));
@@ -32,6 +40,10 @@ public class ServerMtMapChannelInitializer extends ChannelInitializer<SocketChan
         p.addLast(new ObjectEncoder());
         p.addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
 
-        p.addLast(new ClientMtMapRequestAdapter());
+        p.addLast(new ServerResponseContextAdapter(responseHandler, monitor));
+    }
+
+    public Object getMonitor() {
+        return monitor;
     }
 }

@@ -1,35 +1,39 @@
-import client.ResponseHandler;
-import client.SSLClient;
 import client.map.MtMapClient;
-import client.object.ClientObjectChannelInitializer;
+import client.object.ClientObjectContextChannelInitializer;
 import dto.map.MtTransferRes;
-import dto.object.RequestObject;
+import dto.map.ResultStatus;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import server.SSLServer;
+import server.map.ClientMtMapRequestAdapter;
 import server.map.ServerMtMapChannelInitializer;
 import utils.SSLEngineFactory;
 
 import javax.net.ssl.SSLContext;
-import java.util.*;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.security.SecureRandom;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestMtTransfer {
 
-    @Test
-    public void testMtTransferReq() {
-        AtomicInteger reqCount = new AtomicInteger();
+    private final Logger LOG = LogManager.getLogger();
 
+    @Test
+    public void testMtTransferReq() throws InterruptedException {
+        AtomicInteger count = new AtomicInteger();
         final SSLServer objectProcessingSSLServer = new SSLServer();
         final MtMapClient sslClient = new MtMapClient(SSLServer.HOST, SSLServer.PORT);
+        final Object syncLock = new Object();
 
         try {
             SSLContext serverContext = SSLEngineFactory.getServerContext();
 
             ServerMtMapChannelInitializer serverObjectChannelInitializer =
-                    new ServerMtMapChannelInitializer(serverContext);
+                    new ServerMtMapChannelInitializer(serverContext, new ClientMtMapRequestAdapter());
 
             objectProcessingSSLServer.start(
                     serverObjectChannelInitializer,
@@ -37,32 +41,42 @@ public class TestMtTransfer {
                     false
             );
 
-
+            final int maxSize = 50;
             SSLContext clientContext = SSLEngineFactory.getClientContext();
-            ClientObjectChannelInitializer<MtTransferRes> clientObjectChannelInitializer = new ClientObjectChannelInitializer<MtTransferRes>(clientContext,
-                    new ResponseHandler<MtTransferRes>() {
-                        public void handle(MtTransferRes o) {
-                            System.out.println("server response: " + o.status);
-                        }
-                    });
+            ClientObjectContextChannelInitializer<MtTransferRes> clientObjectChannelInitializer =
+                    new ClientObjectContextChannelInitializer<>(
+                            clientContext,
+                            (ctx, resDto, monitor) -> {
+                                int i = count.decrementAndGet();
+                                if (resDto.status==ResultStatus.DONE) {
+                                    LOG.debug("server response: " + resDto.status + " count=" + i);
+                                    if (i==0) {
+                                        assert resDto.size==maxSize;
+                                        synchronized (monitor) {
+                                            monitor.notify();
+                                        }
+                                    }
+                                }
+                            },
+                            syncLock
+                    );
 
             sslClient.init(clientObjectChannelInitializer);
 
+
             Map<Object, Object> sourceMap = new HashMap<>();
-            sourceMap.put(1, 2);
-            sourceMap.put(2, 3);
-            sourceMap.put(4, 1);
-            sourceMap.put("key", "value");
-            sourceMap.put("long-key", "value2");
-            sourceMap.put(3, 0);
-            sourceMap.put(40, 22);
-            sourceMap.put(31, 2);
-            sourceMap.put(34, 1);
 
-            sslClient.start(sourceMap);
+            new SecureRandom().ints().limit(maxSize).forEach(i->{
+                sourceMap.put(i, UUID.randomUUID().toString());
+                count.incrementAndGet();
+            });
 
-            Assert.assertEquals(0, reqCount.get());
-            Thread.sleep(10000);
+            synchronized (syncLock) {
+                sslClient.start(sourceMap, 4);
+                syncLock.wait();
+            }
+            Assert.assertTrue(count.get()==0);
+
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
