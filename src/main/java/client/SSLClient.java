@@ -13,6 +13,8 @@ import io.netty.handler.logging.LoggingHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.Serializable;
+
 public class SSLClient<RequestDto, ResponseDto> {
 
     protected Logger LOG = LogManager.getLogger();
@@ -49,6 +51,9 @@ public class SSLClient<RequestDto, ResponseDto> {
     }
 
     public void call(RequestDto requestDto) {
+        if (!Serializable.class.isAssignableFrom(requestDto.getClass())) {
+            throw new IllegalArgumentException("not serializable argument given");
+        }
         call(requestDto, false);
     }
 
@@ -83,7 +88,8 @@ public class SSLClient<RequestDto, ResponseDto> {
         }
     }
 
-    public void finalize() {
+    public void finalize() throws Throwable {
+        super.finalize();
         shutdown();
     }
 }

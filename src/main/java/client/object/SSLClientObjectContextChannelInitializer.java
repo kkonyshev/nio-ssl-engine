@@ -1,10 +1,7 @@
 package client.object;
 
 import client.ResponseContextHandler;
-import client.ResponseHandler;
-import client.ServerResponseAdapter;
 import client.ServerResponseContextAdapter;
-import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.serialization.ClassResolvers;
@@ -15,19 +12,17 @@ import io.netty.handler.ssl.SslHandler;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
-public class ClientObjectContextChannelInitializer<ResponseDto> extends ChannelInitializer<SocketChannel> {
+public class SSLClientObjectContextChannelInitializer<ResponseDto> extends AbstractClientObjectContextChannelInitializer<ResponseDto> {
 
     private SSLContext sslContext;
-    private ResponseContextHandler<ResponseDto> responseHandler;
-    private Object monitor;
 
-    public ClientObjectContextChannelInitializer(SSLContext sslContext, ResponseContextHandler<ResponseDto> responseHandler, Object monitor) {
+    public SSLClientObjectContextChannelInitializer(SSLContext sslContext, ResponseContextHandler<ResponseDto> responseHandler, Object monitor) {
+        super(responseHandler, monitor);
         this.sslContext = sslContext;
-        this.responseHandler = responseHandler;
-        this.monitor = monitor;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     protected void initChannel(SocketChannel ch) throws Exception {
         ChannelPipeline p = ch.pipeline();
 

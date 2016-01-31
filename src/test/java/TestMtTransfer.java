@@ -1,17 +1,20 @@
 import client.map.MtMapClient;
-import client.object.ClientObjectContextChannelInitializer;
+import client.object.AbstractClientObjectContextChannelInitializer;
+import client.object.PlainClientObjectContextChannelInitializer;
+import client.object.SSLClientObjectContextChannelInitializer;
 import dto.map.MtTransferRes;
 import dto.map.ResultStatus;
+import io.netty.channel.ChannelInitializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 import server.SSLServer;
 import server.map.ClientMtMapRequestAdapter;
-import server.map.ServerMtMapChannelInitializer;
+import server.map.PlainServerMtMapChannelInitializer;
+import server.map.SSLServerMtMapChannelInitializer;
 import utils.SSLEngineFactory;
 
-import javax.net.ssl.SSLContext;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,50 +25,17 @@ public class TestMtTransfer {
 
     private final Logger LOG = LogManager.getLogger();
 
-    @Test
-    public void testMtTransferReq() throws InterruptedException {
-        AtomicInteger count = new AtomicInteger();
+    @SuppressWarnings("unchecked")
+    public void testClient(ChannelInitializer serverChannelInitializer, AbstractClientObjectContextChannelInitializer clientChannelInitializer, int threadCount, int mapSize, AtomicInteger count) {
         final SSLServer objectProcessingSSLServer = new SSLServer();
         final MtMapClient sslClient = new MtMapClient(SSLServer.HOST, SSLServer.PORT);
         try {
-            SSLContext serverContext = SSLEngineFactory.getServerContext();
-
-            ServerMtMapChannelInitializer serverObjectChannelInitializer =
-                    new ServerMtMapChannelInitializer(serverContext, new ClientMtMapRequestAdapter());
-
-            objectProcessingSSLServer.start(
-                    serverObjectChannelInitializer,
-                    SSLServer.PORT,
-                    false
-            );
-
-            final int maxSize = 5000;
-            SSLContext clientContext = SSLEngineFactory.getClientContext();
-
-            ClientObjectContextChannelInitializer<MtTransferRes> clientObjectChannelInitializer =
-                    new ClientObjectContextChannelInitializer<>(
-                            clientContext,
-                            (ctx, resDto, monitor) -> {
-                                int i = count.decrementAndGet();
-                                if (resDto.status==ResultStatus.DONE) {
-                                    LOG.debug("server response: " + resDto.status + " count=" + i);
-                                    if (i==0) {
-                                        assert resDto.size==maxSize;
-                                    }
-                                    synchronized (monitor) {
-                                        monitor.notify();
-                                    }
-                                }
-                            },
-                            new Object()
-                    );
-
-            sslClient.init(clientObjectChannelInitializer, 3);
-
+            objectProcessingSSLServer.start(serverChannelInitializer, SSLServer.PORT);
+            sslClient.init(clientChannelInitializer, threadCount);
 
             Map<Object, Object> sourceMap = new HashMap<>();
 
-            new SecureRandom().ints().limit(maxSize).forEach(i->{
+            new SecureRandom().ints().limit(mapSize).forEach(i->{
                 sourceMap.put(i, UUID.randomUUID().toString());
                 count.incrementAndGet();
             });
@@ -73,12 +43,74 @@ public class TestMtTransfer {
             sslClient.start(sourceMap);
 
             Assert.assertTrue(count.get()==0);
-
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
             objectProcessingSSLServer.stop();
             sslClient.shutdown();
         }
+    }
+
+
+    @Test
+    public void testSSL() {
+        int mapSize = 100;
+        int threadCount = 2;
+
+        AtomicInteger count = new AtomicInteger();
+        ClientMtMapRequestAdapter clientMtMapRequestAdapter =
+                new ClientMtMapRequestAdapter();
+        SSLServerMtMapChannelInitializer sslServerMtMapChannelInitializer =
+                new SSLServerMtMapChannelInitializer(SSLEngineFactory.getServerContext(), clientMtMapRequestAdapter);
+        SSLClientObjectContextChannelInitializer<MtTransferRes> sslClientObjectChannelInitializer =
+                new SSLClientObjectContextChannelInitializer<>(
+                        SSLEngineFactory.getClientContext(),
+                        (ctx, resDto, monitor) -> {
+                            int i = count.decrementAndGet();
+                            if (resDto.status==ResultStatus.DONE) {
+                                LOG.debug("server response: " + resDto.status + " count=" + i);
+                                if (i==0) {
+                                    assert resDto.size==mapSize;
+                                }
+                                synchronized (monitor) {
+                                    monitor.notify();
+                                }
+                            }
+                        },
+                        new Object()
+                );
+
+        testClient(sslServerMtMapChannelInitializer, sslClientObjectChannelInitializer, threadCount, mapSize, count);
+    }
+
+    @Test
+    public void testPlainSocket() {
+        int mapSize = 1000;
+        int threadCount = 5;
+
+        AtomicInteger count = new AtomicInteger();
+        ClientMtMapRequestAdapter clientMtMapRequestAdapter =
+                new ClientMtMapRequestAdapter();
+        PlainServerMtMapChannelInitializer plainServerMtMapChannelInitializer
+                = new PlainServerMtMapChannelInitializer(clientMtMapRequestAdapter);
+
+        PlainClientObjectContextChannelInitializer<MtTransferRes> plainClientObjectChannelInitializer =
+                new PlainClientObjectContextChannelInitializer<>(
+                        (ctx, resDto, monitor) -> {
+                            int i = count.decrementAndGet();
+                            if (resDto.status==ResultStatus.DONE) {
+                                LOG.debug("server response: " + resDto.status + " count=" + i);
+                                if (i==0) {
+                                    assert resDto.size==mapSize;
+                                }
+                                synchronized (monitor) {
+                                    monitor.notify();
+                                }
+                            }
+                        },
+                        new Object()
+                );
+
+        testClient(plainServerMtMapChannelInitializer, plainClientObjectChannelInitializer, threadCount, mapSize, count);
     }
 }

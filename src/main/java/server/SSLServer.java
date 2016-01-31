@@ -22,7 +22,7 @@ public class SSLServer {
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
 
-    public SSLServer start(ChannelInitializer serverObjectChannelInitializer, int port, boolean isSync) {
+    public SSLServer start(ChannelInitializer serverObjectChannelInitializer, int port) {
         LOG.info("Starting server...");
 
         this.bossGroup   = new NioEventLoopGroup(1);
@@ -40,10 +40,6 @@ public class SSLServer {
             ChannelFuture f = b.bind(port).sync();
             // Wait until the server socket is closed.
             ChannelFuture channelFuture = f.channel().closeFuture();
-            if (isSync) {
-                LOG.debug("in sync mode");
-                channelFuture.sync();
-            }
             LOG.info("Server started!");
         } catch (Exception e) {
             LOG.warn("Interrupted", e);

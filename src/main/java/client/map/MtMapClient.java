@@ -1,6 +1,7 @@
 package client.map;
 
-import client.object.ClientObjectContextChannelInitializer;
+import client.object.AbstractClientObjectContextChannelInitializer;
+import client.object.SSLClientObjectContextChannelInitializer;
 import dto.map.MtTransferReq;
 import dto.map.MtTransferRes;
 import dto.map.TransferEvent;
@@ -27,7 +28,7 @@ public class MtMapClient {
 
     private int port;
     private String host;
-    private ClientObjectContextChannelInitializer<MtTransferRes> channelInitializer;
+    private AbstractClientObjectContextChannelInitializer<MtTransferRes> channelInitializer;
     private int maxConnections = 1;
     private final Deque<Channel> queue = new LinkedList<>();
     private int currentConnections = 0;
@@ -38,7 +39,7 @@ public class MtMapClient {
         this.port = port;
     }
 
-    public MtMapClient init(ClientObjectContextChannelInitializer<MtTransferRes> channelInitializer, int threadCount) {
+    public MtMapClient init(AbstractClientObjectContextChannelInitializer<MtTransferRes> channelInitializer, int threadCount) {
         if (group!=null) {
             shutdown();
         }

@@ -20,6 +20,7 @@ import java.util.zip.CRC32;
 public class TestPojoTransfer {
 
     @Test
+    @SuppressWarnings("unchecked")
     public void testPojo1() {
         AtomicInteger reqCount = new AtomicInteger();
 
@@ -36,8 +37,7 @@ public class TestPojoTransfer {
 
             objectProcessingSSLServer.start(
                     serverObjectChannelInitializer,
-                    SSLServer.PORT,
-                    false
+                    SSLServer.PORT
             );
 
 
@@ -72,6 +72,12 @@ public class TestPojoTransfer {
                         }
                     }
                 });
+            }
+
+            try {
+                sslClient.call(new Object());
+            } catch (Exception ex) {
+                assert ex instanceof IllegalArgumentException;
             }
 
             Assert.assertEquals(0, reqCount.get());
