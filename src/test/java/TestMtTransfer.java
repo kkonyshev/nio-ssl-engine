@@ -15,6 +15,7 @@ import server.map.PlainServerMtMapChannelInitializer;
 import server.map.SSLServerMtMapChannelInitializer;
 import utils.SSLEngineFactory;
 
+import javax.net.ssl.SSLContext;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
@@ -53,18 +54,21 @@ public class TestMtTransfer {
 
 
     @Test
-    public void testSSL() {
+    public void testSSL() throws Exception {
         int mapSize = 100;
         int threadCount = 2;
+
+        SSLContext serverSSLContext = SSLEngineFactory.createSSLContext("src/test/resources/server.private", "serverpw", "src/test/resources/client.public", "public");
+        SSLContext clientSSLContext = SSLEngineFactory.createSSLContext("src/test/resources/client.private", "clientpw", "src/test/resources/server.public", "public");
 
         AtomicInteger count = new AtomicInteger();
         ClientMtMapRequestAdapter clientMtMapRequestAdapter =
                 new ClientMtMapRequestAdapter();
         SSLServerMtMapChannelInitializer sslServerMtMapChannelInitializer =
-                new SSLServerMtMapChannelInitializer(SSLEngineFactory.getServerContext(), clientMtMapRequestAdapter);
+                new SSLServerMtMapChannelInitializer(serverSSLContext, clientMtMapRequestAdapter);
         SSLClientObjectContextChannelInitializer<MtTransferRes> sslClientObjectChannelInitializer =
                 new SSLClientObjectContextChannelInitializer<>(
-                        SSLEngineFactory.getClientContext(),
+                        clientSSLContext,
                         (ctx, resDto, monitor) -> {
                             int i = count.decrementAndGet();
                             if (resDto.status==ResultStatus.DONE) {

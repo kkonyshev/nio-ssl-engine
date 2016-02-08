@@ -50,7 +50,7 @@ public final class SSLEngineFactory {
         // Unused
     }
 
-    protected static SSLContext createSSLContext(
+    public static SSLContext createSSLContext(
             String keystore,
             String keystore_password,
             String truststore,
@@ -62,7 +62,7 @@ public final class SSLEngineFactory {
                 new FileInputStream(truststore), truststore_password);
     }
 
-    protected static SSLContext init(
+    public static SSLContext init(
             InputStream keystoreStream,
             String keystore_password,
             InputStream truststoreStream,
